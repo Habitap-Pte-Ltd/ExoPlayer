@@ -25,20 +25,26 @@ import static com.google.android.exoplayer2.util.Util.castNonNull;
 
 import android.net.Uri;
 import android.util.Base64;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.audio.AacUtil;
 import com.google.android.exoplayer2.util.CodecSpecificDataUtil;
+import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.NalUnitUtil;
 import com.google.android.exoplayer2.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Objects;
+
 /** Represents a media track in an RTSP playback. */
 /* package */ final class RtspMediaTrack {
+  private static final String TAG = "RtspMediaTrack";
+
   // Format specific parameter names.
   private static final String PARAMETER_PROFILE_LEVEL_ID = "profile-level-id";
   private static final String PARAMETER_SPROP_PARAMS = "sprop-parameter-sets";
@@ -108,6 +114,29 @@ import com.google.common.collect.ImmutableMap;
     }
 
     ImmutableMap<String, String> fmtpParameters = mediaDescription.getFmtpParametersAsMap();
+
+    //region TODO:HABITAP
+    //        Some Bosch (and maybe other) devices do not send FMTP parameters and don't use the
+    //        "dynamic" payload type.  To work around this, we will inject the missing FMTP
+    //        paramters.  We will also remove the assertion for the payload type so that it will
+    //        accept other values aside from the dynamic values.
+    Log.i(TAG, "generatePayloadFormat: fmtpParameters = " + fmtpParameters);
+
+    if (fmtpParameters.isEmpty()) {
+      fmtpParameters = ImmutableMap.<String, String>builder()
+              //.put(PARAMETER_PROFILE_LEVEL_ID, "4d001e")                    // required for H264
+              .put(PARAMETER_SPROP_PARAMS, "Z00AHpY1QWAk03AQEBAg,aO4xsg==") // required for H264
+              .build();
+
+      Log.w(TAG, "generatePayloadFormat: generated fmtpParameters = " + fmtpParameters);
+    }
+
+    for (String key : fmtpParameters.keySet()) {
+      String value = fmtpParameters.get(key);
+      Log.i(TAG, "generatePayloadFormat: " + key + " => " + value);
+    }
+    //endregion TODO:HABITAP
+
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
         checkArgument(channelCount != C.INDEX_UNSET);
@@ -125,8 +154,20 @@ import com.google.common.collect.ImmutableMap;
     }
 
     checkArgument(clockRate > 0);
-    // Checks if payload type is "dynamic" as defined in RFC3551 Section 3.
-    checkArgument(rtpPayloadType >= 96);
+
+    //region TODO:HABITAP
+    //        Some Bosch (and maybe other) devices do not send FMTP parameters and don't use the
+    //        "dynamic" payload type.  To work around this, we will inject the missing FMTP
+    //        paramters.  We will also remove the assertion for the payload type so that it will
+    //        accept other values aside from the dynamic values.
+    //region Original Code
+//    // Checks if payload type is "dynamic" as defined in RFC3551 Section 3.
+//    checkArgument(rtpPayloadType >= 96);
+    //endregion Original Code
+
+    Log.i(TAG, "generatePayloadFormat: rtpPayloadType = " + rtpPayloadType);
+    //endregion TODO:HABITAP
+
     return new RtpPayloadFormat(formatBuilder.build(), rtpPayloadType, clockRate, fmtpParameters);
   }
 
