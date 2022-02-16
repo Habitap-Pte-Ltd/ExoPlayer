@@ -17,6 +17,7 @@ package com.google.android.exoplayer2.source.rtsp;
 
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +41,8 @@ public final class RtpPayloadFormat {
 
   /** Returns whether the format of a {@link MediaDescription} is supported. */
   public static boolean isFormatSupported(MediaDescription mediaDescription) {
+    Log.d("RtpPayloadFormat", "isFormatSupported: format = " + mediaDescription.rtpMapAttribute.mediaEncoding);
+
     switch (Ascii.toUpperCase(mediaDescription.rtpMapAttribute.mediaEncoding)) {
       case RTP_MEDIA_AC3:
       case RTP_MEDIA_H264:
