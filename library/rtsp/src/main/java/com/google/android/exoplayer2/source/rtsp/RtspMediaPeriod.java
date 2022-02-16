@@ -510,15 +510,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       for (int i = 0; i < trackTimingList.size(); i++) {
         trackUrisWithTiming.add(checkNotNull(trackTimingList.get(i).uri.getPath()));
       }
-      for (int i = 0; i < selectedLoadInfos.size(); i++) {
-        RtpLoadInfo loadInfo = selectedLoadInfos.get(i);
-        if (!trackUrisWithTiming.contains(loadInfo.getTrackUri().getPath())) {
-          playbackException =
-              new RtspPlaybackException(
-                  "Server did not provide timing for track " + loadInfo.getTrackUri());
-          return;
-        }
-      }
+      
+      //region TODO: Habitap: Some Bosch cameras don't send the track info in the `RTP-info`
+      //         header.  Remove this check so that we can continue to stream with these cameras.
+//      for (int i = 0; i < selectedLoadInfos.size(); i++) {
+//        RtpLoadInfo loadInfo = selectedLoadInfos.get(i);
+//        if (!trackUrisWithTiming.contains(loadInfo.getTrackUri().getPath())) {
+//          playbackException =
+//              new RtspPlaybackException(
+//                  "Server did not provide timing for track " + loadInfo.getTrackUri());
+//          return;
+//        }
+//      }
+      //endregion
 
       for (int i = 0; i < trackTimingList.size(); i++) {
         RtspTrackTiming trackTiming = trackTimingList.get(i);
