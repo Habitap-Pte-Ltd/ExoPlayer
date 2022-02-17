@@ -140,3 +140,55 @@ implementation project(':exoplayer-library-ui')
 
 To develop ExoPlayer using Android Studio, simply open the ExoPlayer project in
 the root directory of the repository.
+
+
+## RTSP Issues and Work-around
+
+### Non-compliant CCTVs
+
+ExoPlayer performs several assertions following the RTSP standard (https://www.ietf.org/rfc/rfc2326.txt).
+However, some CCTV manufacturers, particularly BOSCH, don't follow the standard and would cause
+ExoPlayer to crash or not be able to play the video stream.
+
+* Missing FMTP Parameter  
+  ExoPlayer asserts that the FMTP parameter should be present.  But, the BOSCH camera we used for
+  testing does not send this value.  This would cause ExoPlayer to crash.
+
+  As a work-around, we *inject* the FMTP values.  However, we use a hard-coded value for the
+  `sprop-parameter-sets` property since we don't know how to generate/calculate this.  We set it to
+  `"Z00AHpY1QWAk03AQEBAg,aO4xsg=="`, which we copied from a COMELIT camera.  This work-around is
+  implemented in `RtspMediaTrack.generatePayloadFormat`.
+
+  The table below shows the paramters sent by the BOSCH camera vs the COMELIT camera  
+  | BOSCH | COMELIT |
+  |-|-|
+  | v=0 | v=0 |
+  | o=- 0 0 IN IP4 127.0.0.1 | o=- 0 0 IN IP4 127.0.0.1 |
+  | s=Stream | s=Stream |
+  | c=IN IP4 0.0.0.0 | c=IN IP4 0.0.0.0 |
+  | t=0 0 | t=0 0 |
+  | m=video 0 RTP/AVP 35 | m=video 0 RTP/AVP 96 |
+  | | b=AS:5000 |
+  | a=rtpmap:35 H264/90000 | a=rtpmap:96 H264/90000 |
+  | | **a=fmtp:96 profile-level-id=4d001e; sprop-parameter-sets=Z00AHpY1QWAk03AQEBAg,aO4xsg==; packetization-mode=1** |
+  | a=control:trackID=0 | a=control:trackID=0 |
+
+* Non-dynamic `Payload Type`  
+  ExoPlayer also asserts that the `Payload Type` should be set to *dynamic* (i.e. >= 96) as defined
+  in **RFC3551 Section 3**.  However, the BOSCH camera we have uses `Payload Type` **`35`**.  As a
+  work-around, we removed this assertion (located in `RtspMediaTrack.generatePayloadFormat`).
+
+* Missing `RTP-info` Header  
+  The BOSCH camera we test also does not send the `RTP-info` response header, which ExoPlayer
+  asserts that it should be present.  As a work-around, we removed the assertion in
+  `RtspMediaPeriod.onPlaybackStarted`.
+
+  Note also that, because of the missing track info, pausing and resuming RTSP streams would not work.
+
+### Slow Loading Times
+
+From our testing, we noticed that ExoPlayer takes about 7-10 seconds on average to load and play a
+video stream.  This is quite slow compared to VLC's ~3 second loading times.  We tried to play
+around with buffer durations through `LoadControl`.  However, even after setting the buffer to as
+low as **`500ms`**, we still couldn't see a noticeable difference; the loading time is still quite
+long (~9 seconds).
